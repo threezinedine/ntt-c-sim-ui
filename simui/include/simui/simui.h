@@ -46,11 +46,17 @@ typedef void (*FPN_SiPollEvents)(void);
 
 /**
  * Function pointer type for the simulation execute loop function. If user wants to
- * override the default simulation loop, they can provide a function matching this signature.
- *
- * @param deltaTime The time elapsed since the last frame, in seconds.
+ * override the default rendering loop, they can provide a function matching this signature. Be called
+ * at with the siRender function.
  */
-typedef void (*FPN_SiExecuteLoop)(f32 deltaTime);
+typedef void (*FPN_SiBeginFrame)();
+
+/**
+ * Function pointer type for the simulation execute loop function. If user wants to
+ * override the default rendering loop, they can provide a function matching this signature. Be called
+ * at with the siRender function.
+ */
+typedef void (*FPN_SiEndFrame)();
 
 /**
  * Function pointer type for the simulation shutdown function. If user wants to
@@ -66,12 +72,10 @@ typedef void (*FPN_SiShutdown)(void);
  * If user wants to override the default event handling, they can provide their own implementation
  * matching this enum, if not, the events will be ignored.
  */
-typedef enum SiUIEvent
+typedef enum SiUIEventType
 {
-	SI_UI_EVENT_NONE,			///< Did nothing event with ``.
-	SI_UI_EVENT_DRAW_RECTANGLE, ///< Draw rectangle event with the receive `DrawRectangleParameter`.
-} SiUIEvent;
-
+	SI_UI_EVENT_TYPE_DRAW_RECTANGLE, ///< Draw rectangle event with the receive `DrawRectangleParameter`.
+} SiUIEventType;
 /**
  * The structure representing a color with red, green, blue, and alpha channels.
  */
@@ -97,6 +101,20 @@ typedef struct DrawRectangleParameter
 } DrawRectangleParameter;
 
 /**
+ * The structure representing a UI event in the SimUI library.
+ * It contains the type of the event and a union of parameters specific to each event type.
+ * The siRender function will dispatch events to the rendering backend based on this structure.
+ */
+typedef struct SiUIEvent
+{
+	SiUIEventType type; ///< The type of the event.
+
+	union {
+		DrawRectangleParameter drawRectangleParams; ///< Parameters for the draw rectangle event.
+	};
+} SiUIEvent;
+
+/**
  * The template method for handling the rectangle drawing event. If user wants to override the default rectangle drawing
  * behavior, they can provide their own implementation matching this signature, if the override method is not provided,
  * the event will be ignored.
@@ -111,10 +129,11 @@ typedef void (*FPN_SiDrawRectangle)(DrawRectangleParameter params);
  */
 typedef struct SiCallbackHub
 {
-	FPN_SiInitialize  initializeFunction;  ///< Pointer to the user-defined initialization function.
-	FPN_SiPollEvents  pollEventsFunction;  ///< Pointer to the user-defined poll events function.
-	FPN_SiExecuteLoop executeLoopFunction; ///< Pointer to the user-defined execute loop function.
-	FPN_SiShutdown	  shutdownFunction;	   ///< Pointer to the user-defined shutdown function.
+	FPN_SiInitialize initializeFunction; ///< Pointer to the user-defined initialization function.
+	FPN_SiPollEvents pollEventsFunction; ///< Pointer to the user-defined poll events function.
+	FPN_SiBeginFrame beginFrameFunction; ///< Pointer to the user-defined begin frame function.
+	FPN_SiEndFrame	 endFrameFunction;	 ///< Pointer to the user-defined end frame function.
+	FPN_SiShutdown	 shutdownFunction;	 ///< Pointer to the user-defined shutdown function.
 
 	/**
 	 * Pointer to the user-defined event handling function. If not provided, all events will be ignored.
@@ -198,6 +217,9 @@ void siShutdown();
  * }
  * ```
  */
+
+// =========================== Drawing API ===========================
+void siDrawRectangle(f32 x, f32 y, f32 width, f32 height);
 
 // =========================== Global Variables ==========================
 extern SiCallbackHub gSiCallbackHub;

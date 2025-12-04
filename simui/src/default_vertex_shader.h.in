@@ -1,0 +1,8 @@
+const char* defaultVertexShader = "#version 330 core\n"
+								  "\n"
+								  "layout (location = 0) in vec2 vPos;\n"
+								  "\n"
+								  "void main()\n"
+								  "{\n"
+								  "    gl_Position = vec4(vPos, 0.0, 1.0);\n"
+								  "}\n";
