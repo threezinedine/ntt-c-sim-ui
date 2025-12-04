@@ -1,0 +1,12 @@
+{
+  "configurations": [
+    {
+      "name": "Simple Example",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/simui/build/examples/simple",
+      "cwd": "${workspaceFolder}/simui/build/examples",
+      "preLaunchTask": "Build SimUI"
+    }
+  ]
+}
