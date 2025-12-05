@@ -45,6 +45,9 @@ void siRaiseError(const char* message, ...);
 		siRaiseError("[SIMUI] - %s", errorMessage);                                                                    \
 	} while (0)
 
+#define SI_STRINGIFY(x)	 _SI_STRINGIFY(x)
+#define _SI_STRINGIFY(x) #x
+
 // =========================== Common data types ===========================
 /**
  * The structure representing a color with RGBA formats.
@@ -112,6 +115,15 @@ typedef void (*FPN_SiShutdown)(void);
  */
 typedef SiVector2 (*FPN_GetWindowSize)(void*);
 
+/**
+ * Forward declaration for texture managing, this struct will be defined internally for each rendering
+ * backend. User should not interact with this struct directly, instead they should use the provided
+ * API functions to create, bind, and manage textures in the rendering
+ */
+struct SiTexture;
+
+typedef struct SiTexture SiTexture;
+
 // =========================== Event System ===========================
 
 /**
@@ -130,11 +142,12 @@ typedef enum SiUIEventType
  */
 typedef struct DrawRectangleParameter
 {
-	f32			   x;	   ///< The x position of the rectangle.
-	f32			   y;	   ///< The y position of the rectangle.
-	f32			   width;  ///< The width of the rectangle.
-	f32			   height; ///< The height of the rectangle.
-	struct SiColor color;  ///< The color of the rectangle.
+	f32			   x;		 ///< The x position of the rectangle.
+	f32			   y;		 ///< The y position of the rectangle.
+	f32			   width;	 ///< The width of the rectangle.
+	f32			   height;	 ///< The height of the rectangle.
+	struct SiColor color;	 ///< The color of the rectangle.
+	SiTexture*	   pTexture; ///< Pointer to the texture to be used for the rectangle.
 } DrawRectangleParameter;
 
 /**
@@ -262,8 +275,8 @@ void siShutdown();
  * ```
  */
 
-// =========================== Drawing API ===========================
-void siDrawRectangle(f32 x, f32 y, f32 width, f32 height);
+// =========================== Drawing API (but used internally) ===========================
+void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiTexture* pTexture);
 
 // =========================== Global Variables ==========================
 extern SiCallbackHub gSiCallbackHub;

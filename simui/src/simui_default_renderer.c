@@ -7,9 +7,9 @@
 #include <GLFW/glfw3.h>
 // clang-format on
 
-#include "default_fragment_shader.h.in"
+#include <stdio.h>
 
-#include "default_vertex_shader.h.in"
+#define SHADER_SOURCE_BUFFER_SIZE 2048
 
 #define GL_ASSERT(call)                                                                                                \
 	do                                                                                                                 \
@@ -87,6 +87,30 @@ void siConfigureCallbacks()
 	hub->drawRectangleFunction = siDrawRectangle_DefaultRenderer;
 }
 
+static void readShaderSource(const char* filePath, char* buffer, u32 bufferSize)
+{
+	FILE* file = fopen(filePath, "r");
+	if (!file)
+	{
+		SI_ERROR_EXIT("Failed to open shader file: %s", filePath);
+	}
+
+	memset(buffer, 0, bufferSize);
+
+	u32 fileLength = fseek(file, 0, SEEK_END);
+	rewind(file);
+
+	if (fileLength >= bufferSize)
+	{
+		SI_ERROR_EXIT("Shader file too large: %s", filePath);
+	}
+
+	size_t bytesRead  = fread(buffer, 1, bufferSize - 1, file);
+	buffer[bytesRead] = '\0';
+
+	fclose(file);
+}
+
 static void siInitialize_DefaultRenderer()
 {
 	memset(&gDefaultRendererData, 0, sizeof(gDefaultRendererData));
@@ -113,12 +137,16 @@ static void siInitialize_DefaultRenderer()
 		SI_ERROR_EXIT("Failed to initialize GLAD.");
 	}
 
+	char vertexShaderSource[SHADER_SOURCE_BUFFER_SIZE] = {0};
+	readShaderSource(SI_STRINGIFY(SOURCE_PATH) "/shaders/sim.vert", vertexShaderSource, SHADER_SOURCE_BUFFER_SIZE);
+	const char* vertexShaderSourcePtr = vertexShaderSource;
+
 	u32 vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	GL_ASSERT(glShaderSource(vertexShader, 1, &defaultVertexShader, NULL));
+	GL_ASSERT(glShaderSource(vertexShader, 1, &vertexShaderSourcePtr, NULL));
 	GL_ASSERT(glCompileShader(vertexShader));
 
 	GLuint success;
-	GL_ASSERT(glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success));
+	GL_ASSERT(glGetShaderiv(vertexShader, GL_COMPILE_STATUS, (i32*)&success));
 	if (!success)
 	{
 		char infoLog[512];
@@ -126,11 +154,15 @@ static void siInitialize_DefaultRenderer()
 		SI_ERROR_EXIT("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
 	}
 
+	char fragShaderSource[SHADER_SOURCE_BUFFER_SIZE] = {0};
+	readShaderSource(SI_STRINGIFY(SOURCE_PATH) "/shaders/sim.frag", fragShaderSource, SHADER_SOURCE_BUFFER_SIZE);
+	const char* fragShaderSourcePtr = fragShaderSource;
+
 	u32 fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	GL_ASSERT(glShaderSource(fragmentShader, 1, &defaultFragmentShader, NULL));
+	GL_ASSERT(glShaderSource(fragmentShader, 1, &fragShaderSourcePtr, NULL));
 	GL_ASSERT(glCompileShader(fragmentShader));
 
-	GL_ASSERT(glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success));
+	GL_ASSERT(glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, (i32*)&success));
 	if (!success)
 	{
 		char infoLog[512];

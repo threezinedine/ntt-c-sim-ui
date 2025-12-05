@@ -1,6 +1,0 @@
-const char* defaultFragmentShader = "#version 330 core\n"
-									"out vec4 color;\n"
-									"void main()\n"
-									"{\n"
-									"    color = vec4(1.0);\n"
-									"}\n";

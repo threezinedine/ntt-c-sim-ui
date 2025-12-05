@@ -3,7 +3,10 @@
     {
       "name": "Linux",
       "includePath": ["${workspaceFolder}/**"],
-      "defines": ["SIMUI_USE_DEFAULT_RENDERER"],
+      "defines": [
+        "SIMUI_USE_DEFAULT_RENDERER",
+        "SOURCE_PATH=/path/to/workspace"
+      ],
       "compilerPath": "/usr/bin/g++",
       "cStandard": "c17",
       "cppStandard": "c++17",
@@ -12,7 +15,10 @@
     {
       "name": "Windows",
       "includePath": ["${workspaceFolder}/**"],
-      "defines": ["SIMUI_USE_DEFAULT_RENDERER"],
+      "defines": [
+        "SIMUI_USE_DEFAULT_RENDERER",
+        "SOURCE_PATH=/path/to/workspace"
+      ],
       "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
       "cStandard": "c17",
       "cppStandard": "c++17",

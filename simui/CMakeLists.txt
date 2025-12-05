@@ -55,12 +55,14 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         ${PROJECT_NAME}
         PUBLIC
         SIMUI_DEBUG
+        SOURCE_PATH=${CMAKE_CURRENT_SOURCE_DIR}
     )
     target_compile_options(
         ${PROJECT_NAME}
         PUBLIC 
         -g
     )
+
     message(STATUS "SimUI: Debug build enabled.")
 else()
     target_compile_options(
