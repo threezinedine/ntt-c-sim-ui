@@ -49,6 +49,8 @@ void siRender(f32 deltaTime)
 		gSiCallbackHub.beginFrameFunction();
 	}
 
+	gSiContext.windowSize = gSiCallbackHub.getWindowSizeFunction(gSiContext.pRenderingData);
+
 	for (u32 eventIndex = 0u; eventIndex < gDrawingEventsCount; ++eventIndex)
 	{
 		SiUIEvent* pEvent = &gDrawingEvents[eventIndex];
