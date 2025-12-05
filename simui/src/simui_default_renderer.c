@@ -64,11 +64,12 @@ typedef struct DrawCall
 	Uniform uniforms[MAX_UNIFORMS_PER_DRAW_CALL]; ///< Array of uniforms for this draw call.
 	u32		uniformCount;						  ///< Number of uniforms.
 	u32		shader;								  ///< The shader program to use for this draw call.
-	u32		vertexOffset;						  ///< The offset in the vertex buffer.
+	u32		indexOffset;						  ///< The offset in the index buffer.
 } DrawCall;
 
-#define MAX_TRIANGLES 1024
-#define MAX_VERTICES  (MAX_TRIANGLES * 3)
+#define MAX_RECTANGLES 1024
+#define MAX_VERTICES   (MAX_RECTANGLES * 4)
+#define MAX_INDICES	   (MAX_RECTANGLES * 6)
 
 /**
  * Data structure to hold default renderer specific data.
@@ -79,14 +80,16 @@ typedef struct DefaultRendererData
 
 	u32 vao; ///< Vertex Array Object.
 	u32 vbo; ///< Vertex Buffer Object.
+	u32 ebo; ///< Element Buffer Object.
 
 	u32 shader; ///< Shader program.
 
-	DrawCall drawCalls[MAX_TRIANGLES]; ///< Array of draw calls.
-	u32		 drawCallCount;			   ///< Number of draw calls.
-	u32		 currentDrawCallIndex;	   ///< Current draw call index.
+	DrawCall drawCalls[MAX_RECTANGLES]; ///< Array of draw calls.
+	u32		 drawCallCount;				///< Number of draw calls.
+	u32		 currentDrawCallIndex;		///< Current draw call index.
 
 	u32 bufferOffset; ///< Current buffer offset for dynamic vertex data.
+	u32 indexOffset;  ///< Current index offset for dynamic index data.
 } DefaultRendererData;
 
 static DefaultRendererData gDefaultRendererData = {0};
@@ -224,12 +227,17 @@ static void siInitialize_DefaultRenderer()
 	GL_ASSERT(glBindBuffer(GL_ARRAY_BUFFER, gDefaultRendererData.vbo));
 	GL_ASSERT(glBufferData(GL_ARRAY_BUFFER, sizeof(RenderVertex) * MAX_VERTICES, NULL, GL_DYNAMIC_DRAW));
 
+	GL_ASSERT(glGenBuffers(1, &gDefaultRendererData.ebo));
+	GL_ASSERT(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gDefaultRendererData.ebo));
+	GL_ASSERT(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * MAX_INDICES, NULL, GL_DYNAMIC_DRAW));
+
 	GL_ASSERT(glGenVertexArrays(1, &gDefaultRendererData.vao));
 	GL_ASSERT(glBindVertexArray(gDefaultRendererData.vao));
 	GL_ASSERT(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(RenderVertex), (void*)0));
 	GL_ASSERT(glEnableVertexAttribArray(0));
 
 	GL_ASSERT(glBindBuffer(GL_ARRAY_BUFFER, 0));
+	GL_ASSERT(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 	GL_ASSERT(glBindVertexArray(0));
 	gSiContext.pRenderingData = &gDefaultRendererData;
 }
@@ -257,6 +265,7 @@ static void siEndFrame_DefaultRenderer()
 		DrawCall* pDrawCall = &gDefaultRendererData.drawCalls[drawCallIndex];
 		GL_ASSERT(glUseProgram(pDrawCall->shader));
 		GL_ASSERT(glBindVertexArray(gDefaultRendererData.vao));
+		GL_ASSERT(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gDefaultRendererData.ebo));
 
 		// Set uniforms
 		for (u32 uniformIndex = 0u; uniformIndex < pDrawCall->uniformCount; ++uniformIndex)
@@ -296,7 +305,8 @@ static void siEndFrame_DefaultRenderer()
 			}
 		}
 
-		GL_ASSERT(glDrawArrays(GL_TRIANGLES, pDrawCall->vertexOffset, 6));
+		GL_ASSERT(
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(uintptr_t)(pDrawCall->indexOffset * sizeof(u32))));
 	}
 
 	GL_ASSERT(glfwSwapBuffers(gDefaultRendererData.pWindow));
@@ -304,8 +314,9 @@ static void siEndFrame_DefaultRenderer()
 	// Reset for next frame
 	{
 		gDefaultRendererData.drawCallCount		  = 0u;
-		gDefaultRendererData.bufferOffset		  = 0u;
 		gDefaultRendererData.currentDrawCallIndex = 0u;
+		gDefaultRendererData.bufferOffset		  = 0u;
+		gDefaultRendererData.indexOffset		  = 0u;
 	}
 }
 
@@ -317,9 +328,9 @@ static void siShutdown_DefaultRenderer()
 
 static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 {
-	DrawCall* pDrawCall		= &gDefaultRendererData.drawCalls[gDefaultRendererData.drawCallCount++];
-	pDrawCall->shader		= gDefaultRendererData.shader;
-	pDrawCall->vertexOffset = gDefaultRendererData.bufferOffset;
+	DrawCall* pDrawCall	   = &gDefaultRendererData.drawCalls[gDefaultRendererData.drawCallCount++];
+	pDrawCall->shader	   = gDefaultRendererData.shader;
+	pDrawCall->indexOffset = gDefaultRendererData.indexOffset;
 
 	pDrawCall->uniformCount = 1;
 	Uniform* pUniform		= &pDrawCall->uniforms[0];
@@ -347,9 +358,7 @@ static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 		{{x - width / 2.0f, y - height / 2.0f}}, // Bottom-left
 		{{x + width / 2.0f, y - height / 2.0f}}, // Bottom-right
 		{{x + width / 2.0f, y + height / 2.0f}}, // Top-right
-		{{x + width / 2.0f, y + height / 2.0f}}, // Top-right
 		{{x - width / 2.0f, y + height / 2.0f}}, // Top-left
-		{{x - width / 2.0f, y - height / 2.0f}}, // Bottom-left
 	};
 	// clang-format on
 
@@ -358,9 +367,25 @@ static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 	GL_ASSERT(glBufferSubData(GL_ARRAY_BUFFER,
 							  gDefaultRendererData.bufferOffset * sizeof(RenderVertex),
 							  sizeof(RenderVertex) * verticiesCount,
-							  vertices););
+							  vertices));
+
+	u32 indices[] = {
+		gDefaultRendererData.bufferOffset + 0,
+		gDefaultRendererData.bufferOffset + 1,
+		gDefaultRendererData.bufferOffset + 2,
+		gDefaultRendererData.bufferOffset + 2,
+		gDefaultRendererData.bufferOffset + 3,
+		gDefaultRendererData.bufferOffset + 0,
+	};
+
+	u32 indicesCount = sizeof(indices) / sizeof(u32);
+
+	GL_ASSERT(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gDefaultRendererData.ebo));
+	GL_ASSERT(glBufferSubData(
+		GL_ELEMENT_ARRAY_BUFFER, gDefaultRendererData.indexOffset * sizeof(u32), sizeof(u32) * indicesCount, indices));
 
 	gDefaultRendererData.bufferOffset += verticiesCount;
+	gDefaultRendererData.indexOffset += indicesCount;
 }
 
 static SiVector2 siGetWindowSize_DefaultRenderer(void* pRenderingData)
