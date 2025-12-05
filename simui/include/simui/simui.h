@@ -25,8 +25,46 @@ typedef u8 b8;
 #define SI_FALSE ((b8)0)
 
 // Exit codes
-#define SI_EXIT_SUCCESS		 0
-#define SI_EXIT_INIT_FAILURE 1
+#define SI_EXIT_SUCCESS 0
+#define SI_EXIT_FAILURE 1
+
+// =========================== Macros ===========================
+void siStringFormat(char* buffer, u32 bufferSize, const char* format, ...);
+void siRaiseError(const char* message, ...);
+
+#define ERROR_MESSAGE_BUFFER_SIZE 1024
+
+/**
+ * Macro for printing an error message and exiting the program with the specified exit code.
+ */
+#define SI_ERROR_EXIT(message, ...)                                                                                    \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		char errorMessage[ERROR_MESSAGE_BUFFER_SIZE] = {0};                                                            \
+		siStringFormat(errorMessage, ERROR_MESSAGE_BUFFER_SIZE, message, ##__VA_ARGS__);                               \
+		siRaiseError("[SIMUI] - %s", errorMessage);                                                                    \
+	} while (0)
+
+// =========================== Common data types ===========================
+/**
+ * The structure representing a color with RGBA formats.
+ */
+typedef struct SiColor
+{
+	u8 r; ///< The red channel of the color.
+	u8 g; ///< The green channel of the color.
+	u8 b; ///< The blue channel of the color.
+	u8 a; ///< The alpha channel of the color.
+} SiColor;
+
+/**
+ * For representing the position, size or texture coordinates in 2D space.
+ */
+typedef struct SiVector2
+{
+	f32 x; ///< The x component of the vector.
+	f32 y; ///< The y component of the vector.
+} SiVector2;
 
 // =========================== C Function pointers ===========================
 
@@ -65,6 +103,15 @@ typedef void (*FPN_SiEndFrame)();
  */
 typedef void (*FPN_SiShutdown)(void);
 
+/**
+ * Function pointer type for getting the window size. If user wants to
+ * override the default window size retrieval, they can provide a function matching this signature.
+ * Be called when the window size is needed.
+ *
+ * @param void* A pointer to the rendering backend specific data.
+ */
+typedef SiVector2 (*FPN_GetWindowSize)(void*);
+
 // =========================== Event System ===========================
 
 /**
@@ -76,16 +123,6 @@ typedef enum SiUIEventType
 {
 	SI_UI_EVENT_TYPE_DRAW_RECTANGLE, ///< Draw rectangle event with the receive `DrawRectangleParameter`.
 } SiUIEventType;
-/**
- * The structure representing a color with red, green, blue, and alpha channels.
- */
-typedef struct SiColor
-{
-	u8 r; ///< The red channel of the color.
-	u8 g; ///< The green channel of the color.
-	u8 b; ///< The blue channel of the color.
-	u8 a; ///< The alpha channel of the color.
-} SiColor;
 
 /**
  * The parameter structure for the rectangle drawing event.
@@ -129,11 +166,12 @@ typedef void (*FPN_SiDrawRectangle)(DrawRectangleParameter params);
  */
 typedef struct SiCallbackHub
 {
-	FPN_SiInitialize initializeFunction; ///< Pointer to the user-defined initialization function.
-	FPN_SiPollEvents pollEventsFunction; ///< Pointer to the user-defined poll events function.
-	FPN_SiBeginFrame beginFrameFunction; ///< Pointer to the user-defined begin frame function.
-	FPN_SiEndFrame	 endFrameFunction;	 ///< Pointer to the user-defined end frame function.
-	FPN_SiShutdown	 shutdownFunction;	 ///< Pointer to the user-defined shutdown function.
+	FPN_SiInitialize  initializeFunction;	 ///< Pointer to the user-defined initialization function.
+	FPN_SiPollEvents  pollEventsFunction;	 ///< Pointer to the user-defined poll events function.
+	FPN_SiBeginFrame  beginFrameFunction;	 ///< Pointer to the user-defined begin frame function.
+	FPN_SiEndFrame	  endFrameFunction;		 ///< Pointer to the user-defined end frame function.
+	FPN_SiShutdown	  shutdownFunction;		 ///< Pointer to the user-defined shutdown function.
+	FPN_GetWindowSize getWindowSizeFunction; ///< Pointer to the user-defined get window size function.
 
 	/**
 	 * Pointer to the user-defined event handling function. If not provided, all events will be ignored.
@@ -143,8 +181,14 @@ typedef struct SiCallbackHub
 
 typedef struct SiContext
 {
-	b8 isInitialized; ///< Flag indicating whether the SimUI library has been initialized.
-	b8 isRunning;	  ///< Flag indicating whether the application is still running.
+	b8		  isRunning;  ///< Flag indicating whether the application is still running.
+	SiVector2 windowSize; ///< The current size of the window.
+
+	/**
+	 * @brief Pointer to user-defined data associated with the context. Used for storing rendering
+	 * backend specific data.
+	 */
+	void* pRenderingData;
 } SiContext;
 
 // =========================== Main API Functions ===========================

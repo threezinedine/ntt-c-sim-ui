@@ -6,9 +6,6 @@
 #include <GLFW/glfw3.h>
 // clang-format on
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "default_fragment_shader.h.in"
 
 #include "default_vertex_shader.h.in"
@@ -70,7 +67,7 @@ static void siInitialize_DefaultRenderer()
 {
 	if (!glfwInit())
 	{
-		exit(SI_EXIT_INIT_FAILURE);
+		SI_ERROR_EXIT("Failed to initialize GLFW.");
 	}
 
 	gDefaultRendererData.pWindow = glfwCreateWindow(800, 600, "SimUI Default Renderer", NULL, NULL);
@@ -78,7 +75,7 @@ static void siInitialize_DefaultRenderer()
 	if (!gDefaultRendererData.pWindow)
 	{
 		glfwTerminate();
-		exit(SI_EXIT_INIT_FAILURE);
+		SI_ERROR_EXIT("Failed to create GLFW window.");
 	}
 
 	glfwMakeContextCurrent(gDefaultRendererData.pWindow);
@@ -87,7 +84,7 @@ static void siInitialize_DefaultRenderer()
 	{
 		glfwDestroyWindow(gDefaultRendererData.pWindow);
 		glfwTerminate();
-		exit(SI_EXIT_INIT_FAILURE);
+		SI_ERROR_EXIT("Failed to initialize GLAD.");
 	}
 
 	u32 vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -100,7 +97,7 @@ static void siInitialize_DefaultRenderer()
 	{
 		char infoLog[512];
 		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-		printf("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
+		SI_ERROR_EXIT("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
 	}
 
 	u32 fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -112,7 +109,7 @@ static void siInitialize_DefaultRenderer()
 	{
 		char infoLog[512];
 		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-		printf("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n", infoLog);
+		SI_ERROR_EXIT("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n", infoLog);
 	}
 
 	gDefaultRendererData.shader = glCreateProgram();
@@ -125,7 +122,7 @@ static void siInitialize_DefaultRenderer()
 	{
 		char infoLog[512];
 		glGetProgramInfoLog(gDefaultRendererData.shader, 512, NULL, infoLog);
-		printf("ERROR::SHADER::PROGRAM::LINKING_FAILED\n%s\n", infoLog);
+		SI_ERROR_EXIT("ERROR::SHADER::PROGRAM::LINKING_FAILED\n%s\n", infoLog);
 	}
 
 	glDeleteShader(vertexShader);

@@ -22,6 +22,11 @@ void siInitialize()
 	{
 		gSiCallbackHub.initializeFunction();
 	}
+
+	if (gSiCallbackHub.getWindowSizeFunction == SI_NULL)
+	{
+		SI_ERROR_EXIT("Window size function is not set.");
+	}
 }
 
 void siPollEvents()
