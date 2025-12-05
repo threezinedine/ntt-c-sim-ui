@@ -9,7 +9,8 @@
 
 #include <stdio.h>
 
-#define SHADER_SOURCE_BUFFER_SIZE 2048
+#define SHADER_SOURCE_BUFFER_SIZE  2048
+#define MAX_UNIFORMS_PER_DRAW_CALL 16
 
 #define GL_ASSERT(call)                                                                                                \
 	do                                                                                                                 \
@@ -23,14 +24,47 @@
 		}                                                                                                              \
 	} while (0);
 
+typedef enum UniformType
+{
+	UNIFORM_TYPE_FLOAT,
+	UNIFORM_TYPE_VEC2,
+	UNIFORM_TYPE_VEC3,
+	UNIFORM_TYPE_VEC4,
+	UNIFORM_TYPE_INT,
+	UNIFORM_TYPE_IVEC2,
+	UNIFORM_TYPE_IVEC3,
+	UNIFORM_TYPE_IVEC4,
+	UNIFORM_TYPE_SAMPLER2D,
+} UniformType;
+
+typedef union UniformValue {
+	f32 floatValue;
+	f32 vec2Value[2];
+	f32 vec3Value[3];
+	f32 vec4Value[4];
+	i32 intValue;
+	i32 ivec2Value[2];
+	i32 ivec3Value[3];
+	i32 ivec4Value[4];
+	u32 sampler2DValue;
+} UniformValue;
+
+typedef struct Uniform
+{
+	UniformType	 type;
+	UniformValue value;
+	i32			 location;
+} Uniform;
+
 /**
  * Structure to hold draw call information.
  */
 typedef struct DrawCall
 {
-	SiVector2 windowSize;	///< The size of the window for this draw call.
-	u32		  shader;		///< The shader program to use for this draw call.
-	u32		  vertexOffset; ///< The offset in the vertex buffer.
+	Uniform uniforms[MAX_UNIFORMS_PER_DRAW_CALL]; ///< Array of uniforms for this draw call.
+	u32		uniformCount;						  ///< Number of uniforms.
+	u32		shader;								  ///< The shader program to use for this draw call.
+	u32		vertexOffset;						  ///< The offset in the vertex buffer.
 } DrawCall;
 
 #define MAX_TRIANGLES 1024
@@ -223,13 +257,45 @@ static void siEndFrame_DefaultRenderer()
 		DrawCall* pDrawCall = &gDefaultRendererData.drawCalls[drawCallIndex];
 		GL_ASSERT(glUseProgram(pDrawCall->shader));
 		GL_ASSERT(glBindVertexArray(gDefaultRendererData.vao));
-		i32 windowSizeLocation = glGetUniformLocation(pDrawCall->shader, "uWindowSize");
-		if (windowSizeLocation == -1)
+
+		// Set uniforms
+		for (u32 uniformIndex = 0u; uniformIndex < pDrawCall->uniformCount; ++uniformIndex)
 		{
-			SI_ERROR_EXIT("Failed to get uniform location for uWindowSize.");
+			Uniform* pUniform = &pDrawCall->uniforms[uniformIndex];
+			switch (pUniform->type)
+			{
+			case UNIFORM_TYPE_FLOAT:
+				GL_ASSERT(glUniform1f(pUniform->location, pUniform->value.floatValue));
+				break;
+			case UNIFORM_TYPE_VEC2:
+				GL_ASSERT(glUniform2fv(pUniform->location, 1, pUniform->value.vec2Value));
+				break;
+			case UNIFORM_TYPE_VEC3:
+				GL_ASSERT(glUniform3fv(pUniform->location, 1, pUniform->value.vec3Value));
+				break;
+			case UNIFORM_TYPE_VEC4:
+				GL_ASSERT(glUniform4fv(pUniform->location, 1, pUniform->value.vec4Value));
+				break;
+			case UNIFORM_TYPE_INT:
+				GL_ASSERT(glUniform1i(pUniform->location, pUniform->value.intValue));
+				break;
+			case UNIFORM_TYPE_IVEC2:
+				GL_ASSERT(glUniform2iv(pUniform->location, 1, pUniform->value.ivec2Value));
+				break;
+			case UNIFORM_TYPE_IVEC3:
+				GL_ASSERT(glUniform3iv(pUniform->location, 1, pUniform->value.ivec3Value));
+				break;
+			case UNIFORM_TYPE_IVEC4:
+				GL_ASSERT(glUniform4iv(pUniform->location, 1, pUniform->value.ivec4Value));
+				break;
+			case UNIFORM_TYPE_SAMPLER2D:
+				GL_ASSERT(glUniform1i(pUniform->location, pUniform->value.sampler2DValue));
+				break;
+			default:
+				SI_ERROR_EXIT("Unknown uniform type.");
+			}
 		}
 
-		GL_ASSERT(glUniform2f(windowSizeLocation, (f32)pDrawCall->windowSize.x, (f32)pDrawCall->windowSize.y));
 		GL_ASSERT(glDrawArrays(GL_TRIANGLES, pDrawCall->vertexOffset, 6));
 	}
 
@@ -252,33 +318,49 @@ static void siShutdown_DefaultRenderer()
 static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 {
 	DrawCall* pDrawCall		= &gDefaultRendererData.drawCalls[gDefaultRendererData.drawCallCount++];
-	pDrawCall->windowSize	= gSiContext.windowSize;
 	pDrawCall->shader		= gDefaultRendererData.shader;
 	pDrawCall->vertexOffset = gDefaultRendererData.bufferOffset;
 
+	pDrawCall->uniformCount = 1;
+	Uniform* pUniform		= &pDrawCall->uniforms[0];
+	pUniform->type			= UNIFORM_TYPE_VEC2;
+	pUniform->location		= glGetUniformLocation(pDrawCall->shader, "uWindowSize");
+
+	if (pUniform->location == -1)
+	{
+		SI_ERROR_EXIT("Failed to get uniform location for 'uWindowSize'.");
+	}
+
+	SiVector2 windowSize		 = siGetWindowSize_DefaultRenderer(&gDefaultRendererData);
+	pUniform->value.vec2Value[0] = windowSize.x;
+	pUniform->value.vec2Value[1] = windowSize.y;
+
 	GL_ASSERT(glBindBuffer(GL_ARRAY_BUFFER, gDefaultRendererData.vbo));
 
-	RenderVertex vertices[6];
-	f32			 x		= params.x;
-	f32			 y		= params.y;
-	f32			 width	= params.width;
-	f32			 height = params.height;
+	f32 x	   = params.x;
+	f32 y	   = params.y;
+	f32 width  = params.width;
+	f32 height = params.height;
 
 	// clang-format off
-	vertices[0] = (RenderVertex){{x - width / 2.0f, y - height / 2.0f}}; // Bottom-left
-	vertices[1] = (RenderVertex){{x + width / 2.0f, y - height / 2.0f}}; // Bottom-right
-	vertices[2] = (RenderVertex){{x + width / 2.0f, y + height / 2.0f}}; // Top-right
-	vertices[3] = (RenderVertex){{x + width / 2.0f, y + height / 2.0f}}; // Top-right
-	vertices[4] = (RenderVertex){{x - width / 2.0f, y + height / 2.0f}}; // Top-left
-	vertices[5] = (RenderVertex){{x - width / 2.0f, y - height / 2.0f}}; // Bottom-left
+	RenderVertex vertices[] = {
+		{{x - width / 2.0f, y - height / 2.0f}}, // Bottom-left
+		{{x + width / 2.0f, y - height / 2.0f}}, // Bottom-right
+		{{x + width / 2.0f, y + height / 2.0f}}, // Top-right
+		{{x + width / 2.0f, y + height / 2.0f}}, // Top-right
+		{{x - width / 2.0f, y + height / 2.0f}}, // Top-left
+		{{x - width / 2.0f, y - height / 2.0f}}, // Bottom-left
+	};
 	// clang-format on
+
+	u32 verticiesCount = sizeof(vertices) / sizeof(RenderVertex);
 
 	GL_ASSERT(glBufferSubData(GL_ARRAY_BUFFER,
 							  gDefaultRendererData.bufferOffset * sizeof(RenderVertex),
-							  sizeof(RenderVertex) * 6,
+							  sizeof(RenderVertex) * verticiesCount,
 							  vertices););
 
-	gDefaultRendererData.bufferOffset += 6; // 6 vertices for 2 triangles
+	gDefaultRendererData.bufferOffset += verticiesCount;
 }
 
 static SiVector2 siGetWindowSize_DefaultRenderer(void* pRenderingData)
