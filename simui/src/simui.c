@@ -85,7 +85,7 @@ void siShutdown()
 	}
 }
 
-void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiTexture* pTexture)
+void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture* pTexture)
 {
 	CHECK_DRAWING_EVENT_BUFFER_CAPACITY();
 
@@ -95,9 +95,9 @@ void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiTexture* pTexture)
 	pEvent->drawRectangleParams.y		 = y;
 	pEvent->drawRectangleParams.width	 = width;
 	pEvent->drawRectangleParams.height	 = height;
-	pEvent->drawRectangleParams.color.r	 = 255;
-	pEvent->drawRectangleParams.color.g	 = 255;
-	pEvent->drawRectangleParams.color.b	 = 255;
-	pEvent->drawRectangleParams.color.a	 = 255;
+	pEvent->drawRectangleParams.color.r	 = color.r;
+	pEvent->drawRectangleParams.color.g	 = color.g;
+	pEvent->drawRectangleParams.color.b	 = color.b;
+	pEvent->drawRectangleParams.color.a	 = color.a;
 	pEvent->drawRectangleParams.pTexture = pTexture;
 }

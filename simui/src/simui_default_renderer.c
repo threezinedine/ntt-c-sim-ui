@@ -108,6 +108,7 @@ static SiVector2 siGetWindowSize_DefaultRenderer(void* pRenderingData);
 typedef struct RenderVertex
 {
 	f32 position[2];
+	f32 textureCoordinates[2];
 } RenderVertex;
 
 void siConfigureCallbacks()
@@ -328,14 +329,19 @@ static void siShutdown_DefaultRenderer()
 
 static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 {
-	DrawCall* pDrawCall	   = &gDefaultRendererData.drawCalls[gDefaultRendererData.drawCallCount++];
+	DrawCall* pDrawCall = &gDefaultRendererData.drawCalls[gDefaultRendererData.drawCallCount++];
+	memset(pDrawCall, 0, sizeof(DrawCall));
 	pDrawCall->shader	   = gDefaultRendererData.shader;
 	pDrawCall->indexOffset = gDefaultRendererData.indexOffset;
 
-	pDrawCall->uniformCount = 1;
-	Uniform* pUniform		= &pDrawCall->uniforms[0];
-	pUniform->type			= UNIFORM_TYPE_VEC2;
-	pUniform->location		= glGetUniformLocation(pDrawCall->shader, "uWindowSize");
+	GL_ASSERT(glUseProgram(pDrawCall->shader));
+
+	Uniform* pUniform = NULL;
+
+	pDrawCall->uniformCount++;
+	pUniform		   = &pDrawCall->uniforms[pDrawCall->uniformCount - 1];
+	pUniform->type	   = UNIFORM_TYPE_VEC2;
+	pUniform->location = glGetUniformLocation(pDrawCall->shader, "vWindowSize");
 
 	if (pUniform->location == -1)
 	{
@@ -346,6 +352,21 @@ static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 	pUniform->value.vec2Value[0] = windowSize.x;
 	pUniform->value.vec2Value[1] = windowSize.y;
 
+	pDrawCall->uniformCount++;
+	pUniform		   = &pDrawCall->uniforms[pDrawCall->uniformCount - 1];
+	pUniform->type	   = UNIFORM_TYPE_VEC4;
+	pUniform->location = glGetUniformLocation(pDrawCall->shader, "uColor");
+
+	if (pUniform->location == -1)
+	{
+		SI_ERROR_EXIT("Failed to get uniform location for 'uColor'.");
+	}
+
+	pUniform->value.vec3Value[0] = (f32)params.color.r / 255.0f;
+	pUniform->value.vec3Value[1] = (f32)params.color.g / 255.0f;
+	pUniform->value.vec3Value[2] = (f32)params.color.b / 255.0f;
+	pUniform->value.vec3Value[3] = (f32)params.color.a / 255.0f;
+
 	GL_ASSERT(glBindBuffer(GL_ARRAY_BUFFER, gDefaultRendererData.vbo));
 
 	f32 x	   = params.x;
@@ -355,10 +376,10 @@ static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 
 	// clang-format off
 	RenderVertex vertices[] = {
-		{{x - width / 2.0f, y - height / 2.0f}}, // Bottom-left
-		{{x + width / 2.0f, y - height / 2.0f}}, // Bottom-right
-		{{x + width / 2.0f, y + height / 2.0f}}, // Top-right
-		{{x - width / 2.0f, y + height / 2.0f}}, // Top-left
+		{{x - width / 2.0f, y - height / 2.0f}, {0.0f, 0.0f}}, // Bottom-left
+		{{x + width / 2.0f, y - height / 2.0f}, {1.0f, 0.0f}}, // Bottom-right
+		{{x + width / 2.0f, y + height / 2.0f}, {1.0f, 1.0f}}, // Top-right
+		{{x - width / 2.0f, y + height / 2.0f}, {0.0f, 1.0f}}, // Top-left
 	};
 	// clang-format on
 

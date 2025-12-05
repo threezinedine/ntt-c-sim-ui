@@ -60,6 +60,23 @@ typedef struct SiColor
 	u8 a; ///< The alpha channel of the color.
 } SiColor;
 
+#define SI_COLOR_WHITE                                                                                                 \
+	(SiColor)                                                                                                          \
+	{                                                                                                                  \
+		255, 255, 255, 255                                                                                             \
+	}
+#define SI_COLOR_BLACK                                                                                                 \
+	(SiColor)                                                                                                          \
+	{                                                                                                                  \
+		0, 0, 0, 255                                                                                                   \
+	}
+
+#define SI_COLOR_RED                                                                                                   \
+	(SiColor)                                                                                                          \
+	{                                                                                                                  \
+		255, 0, 0, 255                                                                                                 \
+	}
+
 /**
  * For representing the position, size or texture coordinates in 2D space.
  */
@@ -276,7 +293,7 @@ void siShutdown();
  */
 
 // =========================== Drawing API (but used internally) ===========================
-void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiTexture* pTexture);
+void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture* pTexture);
 
 // =========================== Global Variables ==========================
 extern SiCallbackHub gSiCallbackHub;
