@@ -221,6 +221,9 @@ static void siInitialize_DefaultRenderer()
 		SI_ERROR_EXIT("Failed to initialize GLAD.");
 	}
 
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	gDefaultRendererData.simpleShader = createShaderFromSource(SI_STRINGIFY(SOURCE_PATH) "/shaders/sim.vert",
 															   SI_STRINGIFY(SOURCE_PATH) "/shaders/sim.frag");
 
