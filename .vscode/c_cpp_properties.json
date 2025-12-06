@@ -5,7 +5,8 @@
       "includePath": ["${workspaceFolder}/**"],
       "defines": [
         "SIMUI_USE_DEFAULT_RENDERER",
-        "SOURCE_PATH=/path/to/workspace"
+        "SOURCE_PATH=/path/to/workspace",
+        "SIMUI_USE_STB"
       ],
       "compilerPath": "/usr/bin/g++",
       "cStandard": "c17",
@@ -17,7 +18,8 @@
       "includePath": ["${workspaceFolder}/**"],
       "defines": [
         "SIMUI_USE_DEFAULT_RENDERER",
-        "SOURCE_PATH=/path/to/workspace"
+        "SOURCE_PATH=/path/to/workspace",
+        "SIMUI_USE_STB"
       ],
       "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
       "cStandard": "c17",

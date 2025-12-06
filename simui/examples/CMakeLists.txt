@@ -24,9 +24,16 @@ foreach(EXAMPLE_FOLDER ${EXAMPLE_FOLDERS})
             "${EXAMPLE_FOLDER}/*.h"
         )
 
-        add_executable(${EXAMPLE_FOLDER_NAME} 
+        add_executable(
+            ${EXAMPLE_FOLDER_NAME} 
             ${EXAMPLE_SRC_FILES} 
             ${EXAMPLE_HEADER_FILES}
+        )
+
+        target_compile_definitions(
+            ${EXAMPLE_FOLDER_NAME}
+            PRIVATE 
+            EXAMPLE_SOURCE_PATH=${EXAMPLE_FOLDER}
         )
 
         target_link_libraries(${EXAMPLE_FOLDER_NAME} PRIVATE SimUI)

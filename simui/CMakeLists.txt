@@ -14,6 +14,12 @@ option(
 )
 
 option(
+    SIMUI_USE_STB
+    "Use stb library for image loading"
+    ON
+)
+
+option(
     CMAKE_BUILD_TYPE 
     "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel."
     Debug
@@ -110,6 +116,31 @@ if (SIMUI_USE_DEFAULT_RENDERER)
         OpenGL::GL
     )
 endif()
+
+if (SIMUI_USE_STB)
+    if (NOT TARGET stb)
+        FetchContent_Declare(
+            stb
+            GIT_REPOSITORY https://github.com/threezinedine/stb.git
+        )
+        FetchContent_MakeAvailable(stb)
+    endif()
+
+    target_link_libraries(
+        ${PROJECT_NAME}
+        PUBLIC
+        stb
+    )
+
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PUBLIC
+        SIMUI_USE_STB
+    )
+
+    message(STATUS "SimUI: Using stb for image loading.")
+endif()
+
 
 if (MSVC)
     set(CMAKE_FOLDER "Example")

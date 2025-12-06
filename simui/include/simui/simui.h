@@ -31,6 +31,7 @@ typedef u8 b8;
 // =========================== Macros ===========================
 void siStringFormat(char* buffer, u32 bufferSize, const char* format, ...);
 void siRaiseError(const char* message, ...);
+void siPrintWarning(const char* message, ...);
 
 #define ERROR_MESSAGE_BUFFER_SIZE 1024
 
@@ -77,6 +78,18 @@ typedef struct SiColor
 		255, 0, 0, 255                                                                                                 \
 	}
 
+#define SI_COLOR_GREEN                                                                                                 \
+	(SiColor)                                                                                                          \
+	{                                                                                                                  \
+		0, 255, 0, 255                                                                                                 \
+	}
+
+#define SI_COLOR_BLUE                                                                                                  \
+	(SiColor)                                                                                                          \
+	{                                                                                                                  \
+		0, 0, 255, 255                                                                                                 \
+	}
+
 /**
  * For representing the position, size or texture coordinates in 2D space.
  */
@@ -85,6 +98,14 @@ typedef struct SiVector2
 	f32 x; ///< The x component of the vector.
 	f32 y; ///< The y component of the vector.
 } SiVector2;
+
+typedef struct SiVector4
+{
+	f32 x; ///< The x component of the vector.
+	f32 y; ///< The y component of the vector.
+	f32 z; ///< The z component of the vector.
+	f32 w; ///< The w component of the vector.
+} SiVector4;
 
 // =========================== C Function pointers ===========================
 
@@ -132,14 +153,59 @@ typedef void (*FPN_SiShutdown)(void);
  */
 typedef SiVector2 (*FPN_GetWindowSize)(void*);
 
-/**
- * Forward declaration for texture managing, this struct will be defined internally for each rendering
- * backend. User should not interact with this struct directly, instead they should use the provided
- * API functions to create, bind, and manage textures in the rendering
- */
-struct SiTexture;
+#define SI_TEXTURE_NULL ((u32) - 1)
+typedef u32 SiTexture;
 
-typedef struct SiTexture SiTexture;
+typedef enum SiTextureFormat
+{
+	SI_TEXTURE_FORMAT_RGBA8, ///< 8 bits per channel RGBA format.
+	SI_TEXTURE_FORMAT_RGB8,	 ///< 8 bits per channel RGB format.
+} SiTextureFormat;
+
+/**
+ * Rendering specific function for creating a texture. User must provide their own implementation
+ * matching this signature if they want to use textures in their UI. This function should allocate
+ * and initialize a texture object based on the provided width, height, format, and data.
+ *
+ * @param width  The width of the texture to be created.
+ * @param height The height of the texture to be created.
+ * @param format The format of the texture to be created.
+ * @param pData  A pointer to the initial data for the texture. Can not be NULL.
+ *
+ * @return The created texture object.
+ */
+SiTexture siCreateTexture(u32 width, u32 height, SiTextureFormat format, const void* pData);
+
+/**
+ * Rendering specific function for getting the size of a texture. User must provide their own implementation
+ * matching this signature if they want to use textures in their UI. This function should return
+ * the width and height of the provided texture object.
+ *
+ * @param texture The texture whose size is to be retrieved.
+ *
+ * @return A SiVector2 structure containing the width and height of the texture.
+ */
+SiVector2 siGetTextureSize(SiTexture texture);
+
+/**
+ * Rendering specific function for getting the format of a texture. User must provide their own implementation
+ * matching this signature if they want to use textures in their UI. This function should return
+ * the format of the provided texture object.
+ *
+ * @param texture The texture whose format is to be retrieved.
+ *
+ * @return The format of the texture.
+ */
+SiTextureFormat siGetTextureFormat(SiTexture texture);
+
+/**
+ * Rendering specific function for destroying a texture. User must provide their own implementation
+ * matching this signature if they want to use textures in their UI. This function should free
+ * all resources associated with the provided texture object.
+ *
+ * @param texture The texture to be destroyed.
+ */
+void siDestroyTexture(SiTexture texture);
 
 // =========================== Event System ===========================
 
@@ -159,12 +225,12 @@ typedef enum SiUIEventType
  */
 typedef struct DrawRectangleParameter
 {
-	f32			   x;		 ///< The x position of the rectangle.
-	f32			   y;		 ///< The y position of the rectangle.
-	f32			   width;	 ///< The width of the rectangle.
-	f32			   height;	 ///< The height of the rectangle.
-	struct SiColor color;	 ///< The color of the rectangle.
-	SiTexture*	   pTexture; ///< Pointer to the texture to be used for the rectangle.
+	f32		  x;	   ///< The x position of the rectangle.
+	f32		  y;	   ///< The y position of the rectangle.
+	f32		  width;   ///< The width of the rectangle.
+	f32		  height;  ///< The height of the rectangle.
+	SiColor	  color;   ///< The color of the rectangle.
+	SiTexture texture; ///< The texture to be used for the rectangle.
 } DrawRectangleParameter;
 
 /**
@@ -255,10 +321,8 @@ void siPollEvents();
  * application. The `deltaTime` parameter represents the time elapsed since the last frame, in seconds.
  * If the flag `SIMUI_USE_DEFAULT_RENDERER` is defined, the default rendering backend will be used, otherwise user
  * must handle their own rendering backend (`FPN_SiExecuteLoop`).
- *
- * @param deltaTime The time elapsed since the last frame, in seconds.
  */
-void siRender(f32 deltaTime);
+void siRender();
 
 /**
  * Be called at the bottom of the `main` function to shutdown the SimUI library and free all allocated resources.
@@ -293,7 +357,12 @@ void siShutdown();
  */
 
 // =========================== Drawing API (but used internally) ===========================
-void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture* pTexture);
+void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture texture);
+
+#ifdef SIMUI_USE_STB
+// =========================== Utils ===========================
+SiTexture readImageFile(const char* filePath);
+#endif // SIMUI_USE_STB
 
 // =========================== Global Variables ==========================
 extern SiCallbackHub gSiCallbackHub;

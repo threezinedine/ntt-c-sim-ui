@@ -29,3 +29,20 @@ void siRaiseError(const char* message, ...)
 
 	exit(SI_EXIT_FAILURE);
 }
+
+void siPrintWarning(const char* message, ...)
+{
+	// change console color to yellow
+	printf("\033[1;33m");
+
+	char finalMessage[ERROR_MESSAGE_BUFFER_SIZE] = {0};
+
+	va_list args;
+	va_start(args, message);
+	vsnprintf(finalMessage, ERROR_MESSAGE_BUFFER_SIZE, message, args);
+	printf("Warning: %s\n", finalMessage);
+	va_end(args);
+
+	// reset console color
+	printf("\033[0m");
+}

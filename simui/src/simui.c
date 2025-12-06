@@ -1,5 +1,10 @@
 #include "simui/simui.h"
 
+#ifdef SIMUI_USE_STB
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+#endif // SIMUI_USE_STB
+
 #define DRAWING_EVENT_BUFFER_SIZE 1024
 #define CHECK_DRAWING_EVENT_BUFFER_CAPACITY()                                                                          \
 	if (gDrawingEventsCount >= DRAWING_EVENT_BUFFER_SIZE)                                                              \
@@ -42,7 +47,7 @@ b8 siRunning()
 	return gSiContext.isRunning;
 }
 
-void siRender(f32 deltaTime)
+void siRender()
 {
 	if (gSiCallbackHub.beginFrameFunction)
 	{
@@ -85,19 +90,51 @@ void siShutdown()
 	}
 }
 
-void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture* pTexture)
+void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture texture)
 {
 	CHECK_DRAWING_EVENT_BUFFER_CAPACITY();
 
-	SiUIEvent* pEvent					 = &gDrawingEvents[gDrawingEventsCount++];
-	pEvent->type						 = SI_UI_EVENT_TYPE_DRAW_RECTANGLE;
-	pEvent->drawRectangleParams.x		 = x;
-	pEvent->drawRectangleParams.y		 = y;
-	pEvent->drawRectangleParams.width	 = width;
-	pEvent->drawRectangleParams.height	 = height;
-	pEvent->drawRectangleParams.color.r	 = color.r;
-	pEvent->drawRectangleParams.color.g	 = color.g;
-	pEvent->drawRectangleParams.color.b	 = color.b;
-	pEvent->drawRectangleParams.color.a	 = color.a;
-	pEvent->drawRectangleParams.pTexture = pTexture;
+	SiUIEvent* pEvent					= &gDrawingEvents[gDrawingEventsCount++];
+	pEvent->type						= SI_UI_EVENT_TYPE_DRAW_RECTANGLE;
+	pEvent->drawRectangleParams.x		= x;
+	pEvent->drawRectangleParams.y		= y;
+	pEvent->drawRectangleParams.width	= width;
+	pEvent->drawRectangleParams.height	= height;
+	pEvent->drawRectangleParams.color.r = color.r;
+	pEvent->drawRectangleParams.color.g = color.g;
+	pEvent->drawRectangleParams.color.b = color.b;
+	pEvent->drawRectangleParams.color.a = color.a;
+	pEvent->drawRectangleParams.texture = texture;
 }
+
+#ifdef SIMUI_USE_STB
+// =========================== Utils ===========================
+SiTexture readImageFile(const char* filePath)
+{
+	int width, height, channels;
+	u8* data = stbi_load(filePath, &width, &height, &channels, 0);
+	if (!data)
+	{
+		SI_ERROR_EXIT("Failed to load image file: %s", filePath);
+	}
+
+	SiTextureFormat format;
+	switch (channels)
+	{
+	case 4:
+		format = SI_TEXTURE_FORMAT_RGBA8;
+		break;
+	case 3:
+		format = SI_TEXTURE_FORMAT_RGB8;
+		break;
+	default:
+		stbi_image_free(data);
+		SI_ERROR_EXIT("Unsupported image format: %s", filePath);
+		break;
+	}
+
+	SiTexture texture = siCreateTexture((u32)width, (u32)height, format, data);
+	stbi_image_free(data);
+	return texture;
+}
+#endif // SIMUI_USE_STB
