@@ -1,0 +1,15 @@
+[project]
+name = "ntt-c-sim-ui"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "project-manager",
+]
+
+[tool.uv.sources]
+project-manager = { git = "https://github.com/threezinedine/project-manager.git" }

@@ -1,0 +1,15 @@
+{
+    "config": {
+        "windows": {
+            "cmake_tool": "Visual Studio 17 2022"
+        },
+        "linux": {
+            "cmake_tool": "Unix Makefiles"
+        },
+        "neededCommands": [
+            "cmake",
+            "git"
+        ]
+    },
+    "projects": []
+}

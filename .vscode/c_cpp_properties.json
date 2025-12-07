@@ -21,10 +21,10 @@
         "SOURCE_PATH=/path/to/workspace",
         "SIMUI_USE_STB"
       ],
-      "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
+      "compilerPath": "g++",
       "cStandard": "c17",
       "cppStandard": "c++17",
-      "intelliSenseMode": "windows-clang-x64"
+      "intelliSenseMode": "windows-gcc-x64"
     }
   ],
   "version": 4
