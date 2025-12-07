@@ -115,7 +115,7 @@ dev = [{ name = "project-manager", git = "https://github.com/threezinedine/proje
 [[package]]
 name = "project-manager"
 version = "0.1.0"
-source = { git = "https://github.com/threezinedine/project-manager.git#7d72efa13a784cb5c9d8412d466e857dd9d796c6" }
+source = { git = "https://github.com/threezinedine/project-manager.git#8e92c3c2daa881ec3fc9d6a77fd0a6c728e05f19" }
 dependencies = [
     { name = "dacite" },
     { name = "jinja2" },

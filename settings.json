@@ -15,10 +15,10 @@
       "language": "C",
       "buildTypesConfig": {
         "debug": {
-          "options": "-DCMAKE_BUILD_TYPE=Debug -DSIMUI_BUILD_EXAMPLES=ON"
+          "options": "-DCMAKE_BUILD_TYPE=Debug"
         },
         "release": {
-          "options": "-DCMAKE_BUILD_TYPE=Release -DSIMUI_BUILD_EXAMPLES=OFF"
+          "options": "-DCMAKE_BUILD_TYPE=Release"
         }
       },
       "executables": [
