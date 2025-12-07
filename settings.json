@@ -1,15 +1,33 @@
 {
-    "config": {
-        "windows": {
-            "cmake_tool": "Visual Studio 17 2022"
-        },
-        "linux": {
-            "cmake_tool": "Unix Makefiles"
-        },
-        "neededCommands": [
-            "cmake",
-            "git"
-        ]
+  "config": {
+    "windows": {
+      "cmake_tool": "Visual Studio 17 2022"
     },
-    "projects": []
+    "linux": {
+      "cmake_tool": "Unix Makefiles"
+    },
+    "neededCommands": ["cmake", "git"]
+  },
+  "projects": [
+    {
+      "name": "simui",
+      "type": "library",
+      "language": "C",
+      "buildTypesConfig": {
+        "debug": {
+          "options": "-DCMAKE_BUILD_TYPE=Debug -DSIMUI_BUILD_EXAMPLES=ON"
+        },
+        "release": {
+          "options": "-DCMAKE_BUILD_TYPE=Release -DSIMUI_BUILD_EXAMPLES=OFF"
+        }
+      },
+      "executables": [
+        {
+          "name": "simple",
+          "windowsPath": "{{ BUILD_DIR }}/examples/{{ BUILD_TYPE|capitalize }}/SimUI.exe",
+          "linuxPath": "{{ BUILD_DIR }}/examples/simple"
+        }
+      ]
+    }
+  ]
 }
