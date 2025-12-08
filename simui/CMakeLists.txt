@@ -56,6 +56,12 @@ target_include_directories(
     ${SIMUI_INCLUDE_DIRS}
 )
 
+target_precompile_headers(
+    ${PROJECT_NAME}
+    PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/simui/common.h"
+)
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(
         ${PROJECT_NAME}
