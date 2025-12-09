@@ -168,30 +168,6 @@ void siConfigureCallbacks()
 	hub->drawRectangleFunction = siDrawRectangle_DefaultRenderer;
 }
 
-static void readShaderSource(const char* filePath, char* buffer, u32 bufferSize)
-{
-	FILE* file = fopen(filePath, "r");
-	if (!file)
-	{
-		SI_ERROR_EXIT("Failed to open shader file: %s", filePath);
-	}
-
-	memset(buffer, 0, bufferSize);
-
-	u32 fileLength = fseek(file, 0, SEEK_END);
-	rewind(file);
-
-	if (fileLength >= bufferSize)
-	{
-		SI_ERROR_EXIT("Shader file too large: %s", filePath);
-	}
-
-	size_t bytesRead  = fread(buffer, 1, bufferSize - 1, file);
-	buffer[bytesRead] = '\0';
-
-	fclose(file);
-}
-
 static u32 createShaderFromSource(const char* vertexSourceFile, const char* fragmentSourceFile);
 
 static void siInitialize_DefaultRenderer()
@@ -254,7 +230,7 @@ static void siInitialize_DefaultRenderer()
 static u32 createShaderFromSource(const char* vertexSourceFile, const char* fragmentSourceFile)
 {
 	char vertexShaderSource[SHADER_SOURCE_BUFFER_SIZE] = {0};
-	readShaderSource(vertexSourceFile, vertexShaderSource, SHADER_SOURCE_BUFFER_SIZE);
+	readFile(vertexSourceFile, vertexShaderSource, SHADER_SOURCE_BUFFER_SIZE);
 	const char* vertexShaderSourcePtr = vertexShaderSource;
 
 	u32 vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -271,7 +247,7 @@ static u32 createShaderFromSource(const char* vertexSourceFile, const char* frag
 	}
 
 	char fragShaderSource[SHADER_SOURCE_BUFFER_SIZE] = {0};
-	readShaderSource(fragmentSourceFile, fragShaderSource, SHADER_SOURCE_BUFFER_SIZE);
+	readFile(fragmentSourceFile, fragShaderSource, SHADER_SOURCE_BUFFER_SIZE);
 	const char* fragShaderSourcePtr = fragShaderSource;
 
 	u32 fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);

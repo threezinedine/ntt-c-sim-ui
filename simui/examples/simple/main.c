@@ -4,7 +4,11 @@
 int main(void)
 {
 	siConfigureCallbacks();
-	siInitialize();
+
+	SiConfig config = {0};
+	config.fontFile = SI_STRINGIFY(EXAMPLE_SOURCE_PATH) "/Roboto.ttf";
+
+	siInitialize(config);
 
 	SiTexture texture = readImageFile(SI_STRINGIFY(EXAMPLE_SOURCE_PATH) "/meed-logo.png");
 	SiVector2 texSize = siGetTextureSize(texture);

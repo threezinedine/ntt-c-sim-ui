@@ -4,8 +4,8 @@
       "name": "Simple Example",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/simui/build/examples/simple",
-      "cwd": "${workspaceFolder}/simui/build/examples",
+      "program": "${workspaceFolder}/simui/build/linux/debug/examples/simple",
+      "cwd": "${workspaceFolder}/simui/build/linux/debug/examples",
       "preLaunchTask": "Build SimUI"
     }
   ]

@@ -4,7 +4,7 @@
     {
       "label": "Build SimUI",
       "type": "shell",
-      "command": "python3 helper.py build -t debug",
+      "command": "uv run helper.py build simui",
       "group": {
         "kind": "build",
         "isDefault": true

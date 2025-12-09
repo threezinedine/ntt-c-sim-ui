@@ -7,6 +7,7 @@ extern "C" {
 #include "common.h"
 #include "datatypes.h"
 #include "event.h"
+#include "font.h"
 #include "functions.h"
 #include "platform.h"
 #include "texture.h"
@@ -42,6 +43,10 @@ typedef struct SiContext
 	 * backend specific data.
 	 */
 	void* pRenderingData;
+
+	b8 isBigEndian; ///< Flag indicating the endianness of the system.
+
+	SiFont defaultFont; ///< The default font used in SimUI.
 } SiContext;
 
 // =========================== Main API Functions ===========================

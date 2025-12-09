@@ -25,6 +25,25 @@ void siPrintWarning(const char* message, ...);
 #define SI_STRINGIFY(x)	 _SI_STRINGIFY(x)
 #define _SI_STRINGIFY(x) #x
 
+/**
+ * Read the contents of a file into a buffer.
+ *
+ * @param filePath The path to the file to be read.
+ * @param buffer The buffer to store the file contents.
+ * @param bufferSize The size of the buffer.
+ * @return The number of bytes read from the file.
+ */
+u32 readFile(const char* filePath, char* buffer, u32 bufferSize);
+
+/**
+ * Used for working with font files, to determine the endianness of the system.
+ */
+b8 isBigEndian();
+
+u64 siU64LittleToBigEndian(u64 value);
+u32 siU32LittleToBigEndian(u32 value);
+u16 siU16LittleToBigEndian(u16 value);
+
 #if __cplusplus
 }
 #endif

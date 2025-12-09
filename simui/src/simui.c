@@ -19,9 +19,30 @@ static SiUIEvent gDrawingEvents[DRAWING_EVENT_BUFFER_SIZE];
 static u32		 gDrawingEventsCount	   = 0u;
 static u32		 gCurrentDrawingEventIndex = 0u;
 
-void siInitialize()
+void siInitialize(SiConfig config)
 {
-	gSiContext.isRunning = SI_TRUE;
+	gSiContext.isRunning   = SI_TRUE;
+	gSiContext.isBigEndian = isBigEndian();
+
+	siFontReadFromFile(config.fontFile, &gSiContext.defaultFont);
+
+	for (u32 tableIndex = 0u; tableIndex < gSiContext.defaultFont.numFontTables; ++tableIndex)
+	{
+		SiFontTableRecord* pRecord = &gSiContext.defaultFont.fontTableRecords[tableIndex];
+		siPrintFontTableRecords(pRecord);
+	}
+
+	siPrintCMap(&gSiContext.defaultFont.cmap);
+	siPrintFontFormat4(&gSiContext.defaultFont.cmap.format4);
+
+	printf("\n");
+
+	const char* testChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+	for (const char* pChar = testChars; *pChar != '\0'; ++pChar)
+	{
+		printf("Map: '%c': %d\n", *pChar, siGetGlyphIndex(&gSiContext.defaultFont, (u16)(*pChar)));
+	}
 
 	if (gSiCallbackHub.initializeFunction)
 	{

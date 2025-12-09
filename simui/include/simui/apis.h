@@ -8,6 +8,10 @@ extern "C" {
 #endif
 
 // =========================== Main APIs ===========================
+typedef struct SiConfig
+{
+	const char* fontFile;
+} SiConfig;
 
 /**
  * Configure the callback hub with user-defined or default implementations. This function should be called
@@ -19,7 +23,7 @@ void siConfigureCallbacks();
  * Be called at the top of the `main` function to starting the SimUI library. If the flag `SIMUI_USE_DEFAULT_RENDERER`
  * is defined, the default rendering backend will be used, otherwise user must provide their own rendering backend.
  */
-void siInitialize();
+void siInitialize(SiConfig config);
 
 /**
  * Be called in the main loop to check whether the application is still running. If the flag
