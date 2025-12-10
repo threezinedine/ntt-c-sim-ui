@@ -31,6 +31,8 @@ typedef struct SiCallbackHub
 	 * Pointer to the user-defined event handling function. If not provided, all events will be ignored.
 	 */
 	FPN_SiDrawRectangle drawRectangleFunction;
+
+	FPN_SiDrawText drawTextFunction;
 } SiCallbackHub;
 
 typedef struct SiContext

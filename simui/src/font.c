@@ -1,292 +1,78 @@
 #include "simui/font.h"
 #include "simui/platform.h"
 #include "simui/simui.h"
+#include "simui/texture.h"
 #include "stdio.h"
 #include <string.h>
 
-#define MAX_FONT_FILE_SIZE 65536
+#define FONT_BUFFER_SIZE	65536
+#define FONT_TEXTURE_WIDTH	2048
+#define FONT_TEXTURE_HEIGHT 2048
 
-static void reformatFontTableRecords(SiFontTableRecord* pTableRecord);
-static b8	validateTable(u8* buffer, SiFontTableRecord* pRecord);
+#define START_OFST 32
+#define END_OFST   127
 
-void siFontReadFromFile(const char* filepath, SiFont* pOutFont)
+#define STB_TRUETYPE_IMPLEMENTATION
+#include <stb_truetype.h>
+
+static stbtt_fontinfo g_fontInfo;
+static SiTexture	  g_fontTexture = SI_TEXTURE_NULL;
+
+static stbtt_packedchar glyphs[END_OFST - START_OFST]					 = {0};
+static u8				pixels[FONT_TEXTURE_WIDTH * FONT_TEXTURE_HEIGHT] = {0}; // big texture
+static f32				scale											 = 1.0f;
+static u8				buffer[FONT_BUFFER_SIZE]						 = {0};
+
+void siFontLoad(const char* file, SiFont* pFont, f32 size)
 {
-	u8	buffer[MAX_FONT_FILE_SIZE] = {0};
-	u32 bytesRead				   = readFile(filepath, (char*)buffer, MAX_FONT_FILE_SIZE);
+	pFont->file = file;
+	pFont->size = readFile(file, buffer, sizeof(buffer));
 
-	if (bytesRead == 0 || bytesRead >= MAX_FONT_FILE_SIZE)
+	if (pFont->size == 0)
 	{
-		SI_ERROR_EXIT("Failed to read font file: %s", filepath);
+		SI_ERROR_EXIT("Failed to read font file: %s", file);
 	}
 
-	SiFontOffsetSubTable* pOffsetSubTable = (SiFontOffsetSubTable*)buffer;
-
-	if (!gSiContext.isBigEndian)
+	if (!stbtt_InitFont(&g_fontInfo, buffer, stbtt_GetFontOffsetForIndex(buffer, 0)))
 	{
-		pOffsetSubTable->scalarType	   = siU32LittleToBigEndian(pOffsetSubTable->scalarType);
-		pOffsetSubTable->numTables	   = siU16LittleToBigEndian(pOffsetSubTable->numTables);
-		pOffsetSubTable->searchRange   = siU16LittleToBigEndian(pOffsetSubTable->searchRange);
-		pOffsetSubTable->entrySelector = siU16LittleToBigEndian(pOffsetSubTable->entrySelector);
-		pOffsetSubTable->rangeShift	   = siU16LittleToBigEndian(pOffsetSubTable->rangeShift);
+		SI_ERROR_EXIT("Failed to initialize font: %s", file);
 	}
 
-	pOffsetSubTable->numTables =
-		pOffsetSubTable->numTables > MAX_FONT_TABLE_RECORDS ? MAX_FONT_TABLE_RECORDS : pOffsetSubTable->numTables;
+	scale				= stbtt_ScaleForPixelHeight(&g_fontInfo, size);
+	pFont->sizeInPixels = size;
 
-	gSiContext.defaultFont.numFontTables = pOffsetSubTable->numTables;
+	stbtt_pack_context pc;
+	stbtt_PackBegin(&pc, pixels, FONT_TEXTURE_WIDTH, FONT_TEXTURE_HEIGHT, 0, 1, NULL);
+	stbtt_PackSetOversampling(&pc, 2, 2);
+	stbtt_PackFontRange(&pc, buffer, 0, pFont->sizeInPixels, START_OFST, END_OFST - START_OFST, glyphs);
+	stbtt_PackEnd(&pc);
 
-	u32 currentOffset = sizeof(SiFontOffsetSubTable);
-
-	for (u32 tableIndex = 0; tableIndex < pOffsetSubTable->numTables; ++tableIndex)
-	{
-		memcpy(&pOutFont->fontTableRecords[tableIndex], buffer + currentOffset, sizeof(SiFontTableRecord));
-		reformatFontTableRecords(&pOutFont->fontTableRecords[tableIndex]);
-		currentOffset += sizeof(SiFontTableRecord);
-
-#if 0
-		if (!validateTable(buffer, &pOutFont->fontTableRecords[tableIndex]))
-		{
-			siPrintWarning("Font table validation failed for table index %u in file %s", tableIndex, filepath);
-		}
-#endif
-		char tag[5] = {0};
-		memcpy(tag, &pOutFont->fontTableRecords[tableIndex].tag, sizeof(u32));
-
-		if (strcmp((const char*)tag, "cmap") == 0)
-		{
-			u32 tableOffset = pOutFont->fontTableRecords[tableIndex].offset;
-
-			memcpy(&pOutFont->cmap, buffer + tableOffset, sizeof(SiCMapHeader));
-
-			if (!gSiContext.isBigEndian)
-			{
-				pOutFont->cmap.header.version	   = siU16LittleToBigEndian(pOutFont->cmap.header.version);
-				pOutFont->cmap.header.numSubTables = siU16LittleToBigEndian(pOutFont->cmap.header.numSubTables);
-			}
-
-			pOutFont->cmap.numSubTables = pOutFont->cmap.header.numSubTables > MAX_CMAP_SUBTABLES
-											  ? MAX_CMAP_SUBTABLES
-											  : pOutFont->cmap.header.numSubTables;
-
-			memcpy(&pOutFont->cmap.subTableRecords,
-				   buffer + tableOffset + sizeof(SiCMapHeader),
-				   pOutFont->cmap.numSubTables * sizeof(SiCMapSubTableRecord));
-
-			for (u32 subTableIndex = 0; subTableIndex < pOutFont->cmap.numSubTables; ++subTableIndex)
-			{
-				SiCMapSubTableRecord* pSubtable = &pOutFont->cmap.subTableRecords[subTableIndex];
-
-				if (!gSiContext.isBigEndian)
-				{
-					pSubtable->platformID		  = siU16LittleToBigEndian(pSubtable->platformID);
-					pSubtable->platformSpecificID = siU16LittleToBigEndian(pSubtable->platformSpecificID);
-					pSubtable->offset			  = siU32LittleToBigEndian(pSubtable->offset);
-				}
-
-				if (pSubtable->platformID == PLATFORM_ID_UNICODE && pSubtable->platformSpecificID == 3)
-				{
-					u32			   format4Offset = tableOffset + pSubtable->offset;
-					SiCMapFormat4* pFormat4		 = &pOutFont->cmap.format4;
-
-					u32 formatSpecificSize = 5 * sizeof(u16); // up to reversedPad
-
-					memcpy(pFormat4,
-						   buffer + format4Offset,
-						   sizeof(SiCMapFormatHeader) + formatSpecificSize); // up to reversedPad
-
-					if (!gSiContext.isBigEndian)
-					{
-						pFormat4->header.format	  = siU16LittleToBigEndian(pFormat4->header.format);
-						pFormat4->header.length	  = siU16LittleToBigEndian(pFormat4->header.length);
-						pFormat4->header.language = siU16LittleToBigEndian(pFormat4->header.language);
-
-						pFormat4->segCountX2	= siU16LittleToBigEndian(pFormat4->segCountX2);
-						pFormat4->searchRange	= siU16LittleToBigEndian(pFormat4->searchRange);
-						pFormat4->entrySelector = siU16LittleToBigEndian(pFormat4->entrySelector);
-						pFormat4->rangeShift	= siU16LittleToBigEndian(pFormat4->rangeShift);
-					}
-
-					u32 endCodeOffset	   = format4Offset + sizeof(SiCMapFormatHeader) + formatSpecificSize;
-					u32 startCodeOffset	   = endCodeOffset + (pFormat4->segCountX2 / 2) * sizeof(u16);
-					u32 idDeltaOffset	   = startCodeOffset + (pFormat4->segCountX2 / 2) * sizeof(u16);
-					u32 idRangeOffset	   = idDeltaOffset + (pFormat4->segCountX2 / 2) * sizeof(u16);
-					u32 glyphIdArrayOffset = idRangeOffset + (pFormat4->segCountX2 / 2) * sizeof(u16);
-
-					memcpy(pFormat4->endCode, buffer + endCodeOffset, startCodeOffset - endCodeOffset);
-					memcpy(pFormat4->startCode, buffer + startCodeOffset, idDeltaOffset - startCodeOffset);
-					memcpy(pFormat4->idDelta, buffer + idDeltaOffset, idRangeOffset - idDeltaOffset);
-					memcpy(pFormat4->idRangeOffset, buffer + idRangeOffset, glyphIdArrayOffset - idRangeOffset);
-
-					for (u16 i = 0; i < pFormat4->segCountX2 / 2; ++i)
-					{
-						if (!gSiContext.isBigEndian)
-						{
-							pFormat4->endCode[i]	   = siU16LittleToBigEndian(pFormat4->endCode[i]);
-							pFormat4->startCode[i]	   = siU16LittleToBigEndian(pFormat4->startCode[i]);
-							pFormat4->idDelta[i]	   = siU16LittleToBigEndian(pFormat4->idDelta[i]);
-							pFormat4->idRangeOffset[i] = siU16LittleToBigEndian(pFormat4->idRangeOffset[i]);
-						}
-					}
-
-					i32 remainingBytes = pFormat4->header.length - glyphIdArrayOffset + format4Offset;
-
-					for (i32 i = 0; i < remainingBytes / 2; ++i)
-					{
-						if (!gSiContext.isBigEndian)
-						{
-							pFormat4->glyphIdArray[i] = siU16LittleToBigEndian(pFormat4->glyphIdArray[i]);
-						}
-					}
-				}
-			}
-		}
-	}
+	g_fontTexture = siCreateTexture(FONT_TEXTURE_WIDTH, FONT_TEXTURE_HEIGHT, SI_TEXTURE_FORMAT_R8, pixels);
 }
 
-i32 siGetGlyphIndex(SiFont* pFont, u16 characterCode)
+SiSprite siGetFontSprite(SiFont* pFont, i8 character)
 {
-	if (pFont->cmap.numSubTables == 0)
-	{
-		SI_ERROR_EXIT("No cmap sub-tables available in the font.");
-	}
+	stbtt_aligned_quad quad;
 
-	if (pFont->cmap.format4.header.format != 4)
-	{
-		SI_ERROR_EXIT("Unsupported cmap format: %u. Only format 4 is supported.", pFont->cmap.format4.header.format);
-	}
+	f32 xpos = 0.0f;
+	f32 ypos = 0.0f;
 
-	SiCMapFormat4* pFormat4 = &pFont->cmap.format4;
-	u32			   segCount = pFormat4->segCountX2 / 2;
+	stbtt_GetPackedQuad(
+		glyphs, FONT_TEXTURE_WIDTH, FONT_TEXTURE_HEIGHT, character - START_OFST, &xpos, &ypos, &quad, 0);
 
-	i32 index = -1;
+	SiSprite sprite = {};
+	sprite.texture	= g_fontTexture;
+	sprite.quadMin	= (SiVector2){quad.s0, quad.t0};
+	sprite.quadMax	= (SiVector2){quad.s1, quad.t1};
 
-	for (u32 i = 0; i < segCount; ++i)
-	{
-		if (pFormat4->endCode[i] >= characterCode)
-		{
-			index = i;
-			break;
-		}
-	}
-
-	if (index == -1 || pFormat4->startCode[index] > characterCode)
-	{
-		return -1; // character not found
-	}
-
-	u16 idRangeOffset = pFormat4->idRangeOffset[index];
-
-	if (idRangeOffset == 0)
-	{
-		return (i16)characterCode + (i16)pFormat4->idDelta[index];
-	}
-	else
-	{
-		u16 glyphIndexAddress = (idRangeOffset / 2) + (characterCode - pFormat4->startCode[index]) - (segCount - index);
-
-		i16 glyphIndex = (i16)pFormat4->glyphIdArray[glyphIndexAddress];
-
-		if (glyphIndex == 0)
-		{
-			return -1; // missing glyph
-		}
-
-		glyphIndex += (i16)pFormat4->idDelta[index];
-		return glyphIndex;
-	}
+	return sprite;
 }
 
-static void reformatFontTableRecords(SiFontTableRecord* pTableRecord)
+void siFontUnload(SiFont* pFont)
 {
-	if (!gSiContext.isBigEndian)
+	if (g_fontTexture != SI_TEXTURE_NULL)
 	{
-		pTableRecord->checkSum = siU32LittleToBigEndian(pTableRecord->checkSum);
-		pTableRecord->offset   = siU32LittleToBigEndian(pTableRecord->offset);
-		pTableRecord->length   = siU32LittleToBigEndian(pTableRecord->length);
+		siDestroyTexture(g_fontTexture);
+		g_fontTexture = SI_TEXTURE_NULL;
 	}
-}
-
-void siPrintFontTableRecords(const SiFontTableRecord* pRecord)
-{
-	char tag[5] = {0};
-	memcpy(tag, &pRecord->tag, sizeof(u32));
-
-	printf("Font Table Record: Tag: %s, CheckSum: 0x%X, Offset: %u, Length: %u\n",
-		   tag,
-		   pRecord->checkSum,
-		   pRecord->offset,
-		   pRecord->length);
-}
-
-void siPrintCMap(const SiCMap* pCMap)
-{
-	printf("CMap Header: Version: %u, NumSubTables: %u\n", pCMap->header.version, pCMap->header.numSubTables);
-	for (u32 i = 0; i < pCMap->numSubTables; ++i)
-	{
-		const SiCMapSubTableRecord* pSubTable = &pCMap->subTableRecords[i];
-
-		char platform[16] = {0};
-
-		switch (pSubTable->platformID)
-		{
-		case 0:
-			strcpy(platform, "Unicode");
-			break;
-		case 1:
-			strcpy(platform, "Macintosh");
-			break;
-		case 3:
-			strcpy(platform, "Windows");
-			break;
-		default:
-			strcpy(platform, "Unknown");
-		}
-
-		printf("\tSubTable %u: PlatformID: %s, EncodingID: %u, Offset: %u\n",
-			   i,
-			   platform,
-			   pSubTable->platformSpecificID,
-			   pSubTable->offset);
-	}
-}
-
-static b8 validateTable(u8* buffer, SiFontTableRecord* pRecord)
-{
-	u32 sum	   = 0;
-	u32 nLongs = (pRecord->length + 3) / 4;
-
-	for (u32 i = 0; i < nLongs; ++i)
-	{
-		sum += *(buffer + (pRecord->offset + i) * sizeof(u32));
-	}
-
-	return sum == pRecord->checkSum;
-}
-
-void siPrintFontFormat4(const SiCMapFormat4* pFormat4)
-{
-	printf("CMap Format 4:\n");
-	printf("\tFormat: %u\n", pFormat4->header.format);
-	printf("\tLength: %u\n", pFormat4->header.length);
-	printf("\tLanguage: %u\n", pFormat4->header.language);
-	printf("\tSegCountX2: %u\n", pFormat4->segCountX2);
-	printf("\tSearchRange: %u\n", pFormat4->searchRange);
-	printf("\tEntrySelector: %u\n", pFormat4->entrySelector);
-	printf("\tRangeShift: %u\n", pFormat4->rangeShift);
-
-#if 1
-	u16 segCount = pFormat4->segCountX2 / 2;
-
-	printf("Segments:\tStartCode\tEndCode\tIDDelta\tIDRangeOffset\n");
-	for (u16 i = 0; i < segCount; ++i)
-	{
-		printf("%8u:\t%9u\t%7u\t%7u\t%13u\n",
-			   i,
-			   pFormat4->startCode[i],
-			   pFormat4->endCode[i],
-			   pFormat4->idDelta[i],
-			   pFormat4->idRangeOffset[i]);
-	}
-
-#endif
 }

@@ -24,26 +24,6 @@ void siInitialize(SiConfig config)
 	gSiContext.isRunning   = SI_TRUE;
 	gSiContext.isBigEndian = isBigEndian();
 
-	siFontReadFromFile(config.fontFile, &gSiContext.defaultFont);
-
-	for (u32 tableIndex = 0u; tableIndex < gSiContext.defaultFont.numFontTables; ++tableIndex)
-	{
-		SiFontTableRecord* pRecord = &gSiContext.defaultFont.fontTableRecords[tableIndex];
-		siPrintFontTableRecords(pRecord);
-	}
-
-	siPrintCMap(&gSiContext.defaultFont.cmap);
-	siPrintFontFormat4(&gSiContext.defaultFont.cmap.format4);
-
-	printf("\n");
-
-	const char* testChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-	for (const char* pChar = testChars; *pChar != '\0'; ++pChar)
-	{
-		printf("Map: '%c': %d\n", *pChar, siGetGlyphIndex(&gSiContext.defaultFont, (u16)(*pChar)));
-	}
-
 	if (gSiCallbackHub.initializeFunction)
 	{
 		gSiCallbackHub.initializeFunction();
@@ -53,6 +33,8 @@ void siInitialize(SiConfig config)
 	{
 		SI_ERROR_EXIT("Window size function is not set.");
 	}
+
+	siFontLoad(config.fontFile, &gSiContext.defaultFont, config.fontSizeInPixels);
 }
 
 void siPollEvents()
@@ -86,9 +68,14 @@ void siRender()
 		case SI_UI_EVENT_TYPE_DRAW_RECTANGLE:
 			if (gSiCallbackHub.drawRectangleFunction)
 			{
-				gSiCallbackHub.drawRectangleFunction(pEvent->drawRectangleParams);
+				gSiCallbackHub.drawRectangleFunction(pEvent->drawRectangleParams, NULL);
 			}
 			break;
+		case SI_UI_EVENT_TYPE_DRAW_TEXT:
+			if (gSiCallbackHub.drawTextFunction)
+			{
+				gSiCallbackHub.drawTextFunction(pEvent->drawTextParams, NULL);
+			}
 		default:
 			break;
 		};
@@ -105,6 +92,8 @@ void siRender()
 
 void siShutdown()
 {
+	siFontUnload(&gSiContext.defaultFont);
+
 	if (gSiCallbackHub.shutdownFunction)
 	{
 		gSiCallbackHub.shutdownFunction();
@@ -112,6 +101,17 @@ void siShutdown()
 }
 
 void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture texture)
+{
+	SiSprite textureSprite = {};
+	textureSprite.texture  = texture;
+
+	textureSprite.quadMin = (SiVector2){0.0f, 0.0f};
+	textureSprite.quadMax = (SiVector2){1.0f, 1.0f};
+
+	siDrawRectangleSprite(x, y, width, height, color, textureSprite);
+}
+
+void siDrawRectangleSprite(f32 x, f32 y, f32 width, f32 height, SiColor color, SiSprite sprite)
 {
 	CHECK_DRAWING_EVENT_BUFFER_CAPACITY();
 
@@ -125,7 +125,22 @@ void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTextu
 	pEvent->drawRectangleParams.color.g = color.g;
 	pEvent->drawRectangleParams.color.b = color.b;
 	pEvent->drawRectangleParams.color.a = color.a;
-	pEvent->drawRectangleParams.texture = texture;
+	pEvent->drawRectangleParams.sprite	= sprite;
+}
+
+void siDrawText(f32 x, f32 y, const char* text, SiColor color, SiFont* pFont)
+{
+	CHECK_DRAWING_EVENT_BUFFER_CAPACITY();
+	SiUIEvent* pEvent			   = &gDrawingEvents[gDrawingEventsCount++];
+	pEvent->type				   = SI_UI_EVENT_TYPE_DRAW_TEXT;
+	pEvent->drawTextParams.x	   = x;
+	pEvent->drawTextParams.y	   = y;
+	pEvent->drawTextParams.text	   = text;
+	pEvent->drawTextParams.color.r = color.r;
+	pEvent->drawTextParams.color.g = color.g;
+	pEvent->drawTextParams.color.b = color.b;
+	pEvent->drawTextParams.color.a = color.a;
+	pEvent->drawTextParams.pFont   = pFont;
 }
 
 #ifdef SIMUI_USE_STB

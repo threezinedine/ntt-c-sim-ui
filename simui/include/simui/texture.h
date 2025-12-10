@@ -9,10 +9,18 @@ extern "C" {
 #define SI_TEXTURE_NULL ((u32) - 1)
 typedef u32 SiTexture;
 
+typedef struct SiSprite
+{
+	SiTexture texture; ///< The texture associated with the sprite.
+	SiVector2 quadMin; ///< The minimum texture coordinates of the sprite.
+	SiVector2 quadMax; ///< The maximum texture coordinates of the sprite.
+} SiSprite;
+
 typedef enum SiTextureFormat
 {
 	SI_TEXTURE_FORMAT_RGBA8, ///< 8 bits per channel RGBA format.
 	SI_TEXTURE_FORMAT_RGB8,	 ///< 8 bits per channel RGB format.
+	SI_TEXTURE_FORMAT_R8,	 ///< 8 bits single channel format.
 } SiTextureFormat;
 
 /**
@@ -39,6 +47,17 @@ SiTexture siCreateTexture(u32 width, u32 height, SiTextureFormat format, const v
  * @return A SiVector2 structure containing the width and height of the texture.
  */
 SiVector2 siGetTextureSize(SiTexture texture);
+
+/**
+ * Rendering specific function for getting the size of a sprite. User must provide their own implementation
+ * matching this signature if they want to use sprites in their UI. This function should return
+ * the width and height of the provided sprite object.
+ *
+ * @param texture The sprite whose size is to be retrieved.
+ *
+ * @return A SiVector2 structure containing the width and height of the sprite.
+ */
+SiVector2 siGetSpriteSize(SiSprite sprite);
 
 /**
  * Rendering specific function for getting the format of a texture. User must provide their own implementation

@@ -126,6 +126,7 @@ typedef struct DefaultRendererData
 
 	u32 simpleShader;  ///< Shader program.
 	u32 textureShader; ///< Texture shader program.
+	u32 textShader;	   ///< Text shader program.
 
 	DrawCall drawCalls[MAX_RECTANGLES]; ///< Array of draw calls.
 	u32		 drawCallCount;				///< Number of draw calls.
@@ -142,7 +143,8 @@ static void		 siPollEvents_DefaultRenderer();
 static void		 siBeginFrame_DefaultRenderer();
 static void		 siEndFrame_DefaultRenderer();
 static void		 siShutdown_DefaultRenderer();
-static void		 siDrawRectangle_DefaultRenderer(DrawRectangleParameter params);
+static void		 siDrawRectangle_DefaultRenderer(DrawRectangleParameter params, void* pRenderingData);
+static void		 siDrawText_DefaultRenderer(DrawTextParameter params, void* pRenderingData);
 static SiVector2 siGetWindowSize_DefaultRenderer(void* pRenderingData);
 
 /**
@@ -166,6 +168,7 @@ void siConfigureCallbacks()
 	hub->getWindowSizeFunction = siGetWindowSize_DefaultRenderer;
 
 	hub->drawRectangleFunction = siDrawRectangle_DefaultRenderer;
+	hub->drawTextFunction	   = siDrawText_DefaultRenderer;
 }
 
 static u32 createShaderFromSource(const char* vertexSourceFile, const char* fragmentSourceFile);
@@ -205,6 +208,9 @@ static void siInitialize_DefaultRenderer()
 
 	gDefaultRendererData.textureShader = createShaderFromSource(SI_STRINGIFY(SOURCE_PATH) "/shaders/texture.vert",
 																SI_STRINGIFY(SOURCE_PATH) "/shaders/texture.frag");
+
+	gDefaultRendererData.textShader = createShaderFromSource(SI_STRINGIFY(SOURCE_PATH) "/shaders/text.vert",
+															 SI_STRINGIFY(SOURCE_PATH) "/shaders/text.frag");
 
 	GL_ASSERT(glGenBuffers(1, &gDefaultRendererData.vbo));
 	GL_ASSERT(glBindBuffer(GL_ARRAY_BUFFER, gDefaultRendererData.vbo));
@@ -385,19 +391,26 @@ static void addVec2Uniform(DrawCall* pDrawCall, const char* name, SiVector2 vec)
 static void addVec4Uniform(DrawCall* pDrawCall, const char* name, SiVector4 vec);
 static void addSamplerUniform(DrawCall* pDrawCall, const char* name, u32 textureUnit, u32 texture);
 
-static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
+static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params, void* pRenderingData)
 {
 	DrawCall* pDrawCall = &gDefaultRendererData.drawCalls[gDefaultRendererData.drawCallCount++];
 	memset(pDrawCall, 0, sizeof(DrawCall));
 	pDrawCall->indexOffset = gDefaultRendererData.indexOffset;
 
-	if (params.texture != SI_TEXTURE_NULL)
+	if (pRenderingData == NULL)
 	{
-		pDrawCall->shader = gDefaultRendererData.textureShader;
+		if (params.sprite.texture != SI_TEXTURE_NULL)
+		{
+			pDrawCall->shader = gDefaultRendererData.textureShader;
+		}
+		else
+		{
+			pDrawCall->shader = gDefaultRendererData.simpleShader;
+		}
 	}
 	else
 	{
-		pDrawCall->shader = gDefaultRendererData.simpleShader;
+		pDrawCall->shader = *(u32*)pRenderingData;
 	}
 
 	GL_ASSERT(glUseProgram(pDrawCall->shader));
@@ -409,9 +422,9 @@ static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 		(SiVector4){
 			params.color.r / 255.0f, params.color.g / 255.0f, params.color.b / 255.0f, params.color.a / 255.0f});
 
-	if (params.texture != SI_TEXTURE_NULL)
+	if (params.sprite.texture != SI_TEXTURE_NULL)
 	{
-		addSamplerUniform(pDrawCall, "uTexture", 0, params.texture);
+		addSamplerUniform(pDrawCall, "uTexture", 0, params.sprite.texture);
 	}
 
 	GL_ASSERT(glBindBuffer(GL_ARRAY_BUFFER, gDefaultRendererData.vbo));
@@ -421,12 +434,19 @@ static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 	f32 width  = params.width;
 	f32 height = params.height;
 
+	SiVector2 bottomLeftTexCoord  = {0.0f, 1.0f};
+	SiVector2 bottomRightTexCoord = {1.0f, 1.0f};
+	SiVector2 topRightTexCoord	  = {1.0f, 0.0f};
+	SiVector2 topLeftTexCoord	  = {0.0f, 0.0f};
+
+	SiSprite* pSprite = &params.sprite;
+
 	// clang-format off
 	RenderVertex vertices[] = {
-		{{x - width / 2.0f, y - height / 2.0f}, {0.0f, 1.0f}}, // Bottom-left
-		{{x + width / 2.0f, y - height / 2.0f}, {1.0f, 1.0f}}, // Bottom-right
-		{{x + width / 2.0f, y + height / 2.0f}, {1.0f, 0.0f}}, // Top-right
-		{{x - width / 2.0f, y + height / 2.0f}, {0.0f, 0.0f}}, // Top-left
+		{{x - width / 2.0f, y - height / 2.0f}, {pSprite->quadMin.x, pSprite->quadMax.y}}, // Bottom-left
+		{{x + width / 2.0f, y - height / 2.0f}, {pSprite->quadMax.x, pSprite->quadMax.y}}, // Bottom-right
+		{{x + width / 2.0f, y + height / 2.0f}, {pSprite->quadMax.x, pSprite->quadMin.y}}, // Top-right
+		{{x - width / 2.0f, y + height / 2.0f}, {pSprite->quadMin.x, pSprite->quadMin.y}}, // Top-left
 	};
 	// clang-format on
 
@@ -454,6 +474,36 @@ static void siDrawRectangle_DefaultRenderer(DrawRectangleParameter params)
 
 	gDefaultRendererData.bufferOffset += verticiesCount;
 	gDefaultRendererData.indexOffset += indicesCount;
+}
+
+static void siDrawText_DefaultRenderer(DrawTextParameter params, void* pRenderingData)
+{
+	// Text rendering not implemented in default renderer.
+	u32 charactersCount = strlen(params.text);
+	f32 currentOffsetX	= params.x;
+
+	f32 xSpacing = 2.0f; // You can adjust spacing between characters here
+
+	for (u32 i = 0; i < charactersCount; ++i)
+	{
+		DrawCall* pDrawCall = &gDefaultRendererData.drawCalls[gDefaultRendererData.drawCallCount++];
+		memset(pDrawCall, 0, sizeof(DrawCall));
+
+		SiSprite  charSprite = siGetFontSprite(params.pFont, params.text[i]);
+		SiVector2 spriteSize = siGetSpriteSize(charSprite);
+
+		DrawRectangleParameter rectParams = {};
+		rectParams.x					  = currentOffsetX + spriteSize.x / 2.0f;
+		rectParams.y					  = params.y + spriteSize.y / 2.0f;
+		rectParams.width				  = spriteSize.x;
+		rectParams.height				  = spriteSize.y;
+		rectParams.color				  = params.color;
+		rectParams.sprite				  = charSprite;
+
+		siDrawRectangle_DefaultRenderer(rectParams, &gDefaultRendererData.textShader);
+
+		currentOffsetX += spriteSize.x + xSpacing;
+	}
 }
 
 static void addVec2Uniform(DrawCall* pDrawCall, const char* name, SiVector2 vec)
@@ -550,6 +600,9 @@ SiTexture siCreateTexture(u32 width, u32 height, SiTextureFormat format, const v
 	case SI_TEXTURE_FORMAT_RGB8:
 		GL_ASSERT(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pData));
 		break;
+	case SI_TEXTURE_FORMAT_R8:
+		GL_ASSERT(glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, pData));
+		break;
 	default:
 		SI_ERROR_EXIT("Unsupported texture format.");
 		break;
@@ -563,6 +616,19 @@ SiVector2 siGetTextureSize(SiTexture texture)
 	TEXTURE_VALIDATE(texture);
 	SiTextureData* pTexture = &gTexturesHub[texture];
 	SiVector2	   size		= {(f32)pTexture->width, (f32)pTexture->height};
+	return size;
+}
+
+SiVector2 siGetSpriteSize(SiSprite sprite)
+{
+	TEXTURE_VALIDATE(sprite.texture);
+	SiTextureData* pTexture	   = &gTexturesHub[sprite.texture];
+	SiVector2	   textureSize = {(f32)pTexture->width, (f32)pTexture->height};
+
+	SiVector2 size;
+	size.x = (sprite.quadMax.x - sprite.quadMin.x) * textureSize.x;
+	size.y = (sprite.quadMax.y - sprite.quadMin.y) * textureSize.y;
+
 	return size;
 }
 

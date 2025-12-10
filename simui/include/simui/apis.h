@@ -11,6 +11,7 @@ extern "C" {
 typedef struct SiConfig
 {
 	const char* fontFile;
+	f32			fontSizeInPixels;
 } SiConfig;
 
 /**
@@ -59,6 +60,8 @@ void siShutdown();
 
 // =========================== Drawing API (but used internally) ===========================
 void siDrawRectangle(f32 x, f32 y, f32 width, f32 height, SiColor color, SiTexture texture);
+void siDrawRectangleSprite(f32 x, f32 y, f32 width, f32 height, SiColor color, SiSprite sprite);
+void siDrawText(f32 x, f32 y, const char* text, SiColor color, SiFont* pFont);
 
 #ifdef SIMUI_USE_STB
 // =========================== Utils ===========================

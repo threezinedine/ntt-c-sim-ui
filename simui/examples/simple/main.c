@@ -5,8 +5,9 @@ int main(void)
 {
 	siConfigureCallbacks();
 
-	SiConfig config = {0};
-	config.fontFile = SI_STRINGIFY(EXAMPLE_SOURCE_PATH) "/Roboto.ttf";
+	SiConfig config			= {0};
+	config.fontFile			= SI_STRINGIFY(EXAMPLE_SOURCE_PATH) "/Roboto.ttf";
+	config.fontSizeInPixels = 29.0f;
 
 	siInitialize(config);
 
@@ -22,6 +23,8 @@ int main(void)
 		siDrawRectangle(100, 50, 200, 100, SI_COLOR_WHITE, SI_TEXTURE_NULL);
 
 		siDrawRectangle(110, 100, 200, 100, SI_COLOR_RED, SI_TEXTURE_NULL);
+
+		siDrawText(120, 150, "Hello, SimUI!", SI_COLOR_WHITE, &gSiContext.defaultFont);
 
 		siRender();
 	}
